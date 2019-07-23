@@ -4,6 +4,19 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from req import Req
 from datetime import datetime
+from os import path, makedirs
+
+
+def screen_page(driver, id_request, search_engine):  # В случае ошибки, делает скрин и сохраняет html в errors
+    newpath = 'errors'
+    if not path.exists(newpath):
+        makedirs(newpath)
+    file_name = '{0}{1}.'.format(id_request, search_engine)
+    driver.save_screenshot(path.abspath('errors/' + str(file_name) + 'png'))
+    elem_html = str(driver.page_source)
+    with open(path.abspath('errors/' + str(file_name) + 'html'), "w", encoding='utf8') as write_file:
+        write_file.write(elem_html)
+
 
 
 def ran_pages_google(site_promoted, driver, namber = 0, namber_page = 0):
@@ -27,7 +40,7 @@ def ran_pages_google(site_promoted, driver, namber = 0, namber_page = 0):
     return ran_pages_google(site_promoted, driver, namber, namber_page)
 
 
-def ran_pages_yandex(site_promoted, driver, namber = 0, namber_page = 0):
+def ran_pages_yandex(ins_request, driver, namber = 0, namber_page = 0):
     """ принимает driver. возвращает позицию в поисковике. листает 10 страниц, если не находит, возврщает 101"""
     if namber_page == 10:
         return 101, False
@@ -38,19 +51,23 @@ def ran_pages_yandex(site_promoted, driver, namber = 0, namber_page = 0):
             r.find_element(By.XPATH, ".//div[contains(@class, 'label') and text()='реклама']")  # проверка рекламы
         except common.exceptions.NoSuchElementException:  # Значит не реклама, продолжаем
             find_cite = r.find_element(By.XPATH, ".//a")
-            if site_promoted in find_cite.get_attribute("href"):
+            if ins_request.site_promoted in find_cite.get_attribute("href"):
                 return namber + 1, find_cite.get_attribute("href")  # возвращаем номер и найденую ссылку
             else:
                 namber += 1
         else:
             continue
     namber_page += 1
-    aria_label = driver.find_element_by_xpath(".//div[@aria-label='Страницы']")  # aria-label="Страницы"
-    aria_label.find_element_by_xpath(".//a[text()='{0}']".format(namber_page + 1)).click()
+    try:
+        aria_label = driver.find_element_by_xpath(".//div[@aria-label='Страницы']")  # aria-label="Страницы"
+        aria_label.find_element_by_xpath(".//a[text()='{0}']".format(namber_page + 1)).click()
+    except:
+        screen_page(driver, ins_request.id, 'yandex')
     driver.implicitly_wait(0)
-    return ran_pages_yandex(site_promoted, driver, namber, namber_page)
+    return ran_pages_yandex(ins_request.site_promoted, driver, namber, namber_page)
 
-def get_position(site_promoted, request_value):
+def get_position(ins_request):
+    site_promoted, request_value, id_request = ins_request.site_promoted, ins_request.value_req, ins_request.id
     """принимает название сайта, поисковик, запрос. возвращает позицию"""
     search_engines = {'google': 'https://www.google.by', 'yandex': 'https://yandex.by'}
     driver = webdriver.Firefox()
@@ -70,7 +87,7 @@ def get_position(site_promoted, request_value):
         page = driver.find_element(By.XPATH, ".//*[@id='text']")  # Поиск
         page.send_keys(request_value)
         page.send_keys(Keys.RETURN)
-        namber_yandex, url_result_yandex = ran_pages_yandex(site_promoted, driver)
+        namber_yandex, url_result_yandex = ran_pages_yandex(ins_request, driver)
     except:
         namber_yandex, url_result_yandex = False, False
     driver.quit()
@@ -88,13 +105,13 @@ def start_parser():
     time_now = datetime.now(tz=None)
     print("time start {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
     for d in dicts:
-            position = get_position(d.site_promoted, d.value_req)
-            if not position[0] or not position[2]:
-                err.append(d.id)
-            d.position_google = position[0] if position[0] else None
-            d.url_result_google = position[1] if position[1] else None
-            d.position_yandex = position[2] if position[2] else None
-            d.url_result_yandex = position[3] if position[3] else None
+        position = get_position(d)
+        if not position[0] or not position[2]:
+            err.append(d.id)
+        d.position_google = position[0] if position[0] else None
+        d.url_result_google = position[1] if position[1] else None
+        d.position_yandex = position[2] if position[2] else None
+        d.url_result_yandex = position[3] if position[3] else None
     Req.create_json(dicts)
     time_now = datetime.now(tz=None)
     print("time finish {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
