@@ -18,7 +18,6 @@ def screen_page(driver, id_request, search_engine):  # В случае ошиб�
         write_file.write(elem_html)
 
 
-
 def ran_pages_google(site_promoted, driver, namber = 0, namber_page = 0):
     """ принимает driver. возвращает позицию в поисковике. листает 10 страниц, если не находит, возврщает 101"""
     if namber_page == 10:
@@ -70,7 +69,13 @@ def get_position(ins_request):
     site_promoted, request_value, id_request = ins_request.site_promoted, ins_request.value_req, ins_request.id
     """принимает название сайта, поисковик, запрос. возвращает позицию"""
     search_engines = {'google': 'https://www.google.by', 'yandex': 'https://yandex.by'}
-    driver = webdriver.Firefox()
+    profile = webdriver.FirefoxProfile()
+    profile.set_preference("network.proxy.type", 1)
+    profile.set_preference("network.proxy.socks", '127.0.0.1')
+    profile.set_preference("network.proxy.socks_port", 9150)
+    profile.set_preference("network.proxy.socks_remote_dns", False)
+    profile.update_preferences()
+    driver = webdriver.Firefox(firefox_profile=profile)
     driver.implicitly_wait(5)
     # Поиск в google
     try:
