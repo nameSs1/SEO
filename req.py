@@ -17,6 +17,8 @@ class Req():
         self.position_google = kwargs['position_google'] if 'position_google' in kwargs else None  # позиция в google
         self.position_yandex = kwargs['position_yandex'] if 'position_yandex' in kwargs else None  # позиция в yandex
         self.site_promoted = kwargs['site_promoted'] if 'site_promoted' in kwargs else None  # продвигаемый сайт
+        self.google_captcha = False
+        self.yandex_captcha = False
         Req.namber += 1
 
     def get_atr(self):
