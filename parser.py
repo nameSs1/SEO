@@ -13,27 +13,17 @@ def create_new_proxy():  # Возвращает обьект webdriver с нов
     subprocess.getoutput('sudo service tor restart')
     opts = Options()
     opts.headless = True
-    profile = webdriver.FirefoxProfile(profile_directory='/home/sergey/PycharmProjects/crm_parser/ProfileFireFox')
-    # profile.set_preference("network.proxy.type", 1)
-    # profile.set_preference("network.proxy.socks", '127.0.0.1')
-    # profile.set_preference("network.proxy.socks_port", 9050)
-    # profile.set_preference("network.proxy.socks_remote_dns", False)
-    # profile.set_preference("intl.accept_languages", "ru")
-    # profile.update_preferences()
+    profile = webdriver.FirefoxProfile()  # profile_directory='/home/sergey/PycharmProjects/crm_parser/ProfileFireFox'
+    profile.set_preference("network.proxy.type", 1)
+    profile.set_preference("network.proxy.socks", '127.0.0.1')
+    profile.set_preference("network.proxy.socks_port", 9050)
+    profile.set_preference("network.proxy.socks_remote_dns", False)
+    profile.set_preference("intl.accept_languages", "ru")
+    profile.set_preference("network.cookie.cookieBehavior", 2)
+    profile.update_preferences()
     driver = webdriver.Firefox(firefox_profile=profile, options=opts)  # options=opts
     driver.implicitly_wait(10)
     return driver
-
-
-def screen_page(driver, id_request, search_engine):  # В случае ошибки, делает скрин и сохраняет html в errors
-    newpath = 'errors'
-    if not path.exists(newpath):
-        makedirs(newpath)
-    file_name = '{0}{1}.'.format(id_request, search_engine)
-    driver.save_screenshot(path.abspath('errors/' + str(file_name) + 'png'))
-    elem_html = str(driver.page_source)
-    with open(path.abspath('errors/' + str(file_name) + 'html'), "w", encoding='utf8') as write_file:
-        write_file.write(elem_html)
 
 
 def check_captcha_google(driver):  # Проверяет не подсовывает ли google капчу
@@ -52,7 +42,7 @@ def check_captcha_yandex(driver):  # Проверяет не подсовыва�
         return False
 
 
-def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):
+def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):  # Проверка сраницы с ответами гугл
     if check_captcha_google(driver):  # Проверяем не подсовывает ли google капчу
         return None, None
     page = driver.find_element(By.XPATH, "//*[@id='search']")  # page = driver.find_element_by_id("search")
@@ -60,7 +50,7 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):
     for i, result in enumerate(results):
         try:  # xpath_str = "[contains(text(),'{}')]".format(cite_name)
             find_cite = result.find_element_by_xpath('.//cite')
-        except:
+        except common.exceptions.NoSuchElementException:
             continue
         if req_i.site_promoted in find_cite.text:
             return namber + 1, find_cite.text
@@ -73,7 +63,7 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):
     return ran_pages_google(req_i, driver, namber, namber_page)
 
 
-def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):
+def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):  # Проверка сраницы с ответами яндекс
     if check_captcha_yandex(driver):  # проверка на капчу
         return None, None
     results = driver.find_elements(By.XPATH, ".//ul/li[@class='serp-item']")  # получаем список результатов
@@ -95,33 +85,32 @@ def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):
     try:
         aria_label = driver.find_element_by_xpath(".//div[@aria-label='Страницы']")  # aria-label="Страницы"
         aria_label.find_element_by_xpath(".//a[text()='{0}']".format(namber_page + 1)).click()
-    except:
-        screen_page(driver, req_i.id, 'yandex')
+    except common.exceptions.NoSuchElementException:
         return None, None  # возвращаем None, пробуем с другого ip
     driver.implicitly_wait(10)
     return ran_pages_yandex(req_i, driver, namber, namber_page)
 
 
-def get_positions(reqs):
+def get_positions(reqs):  # Задаем поисковика полученый список запросов
 
-    def search_google(driver, req_i):
+    def search_google(driver, req_i):  # Поиск в google
         try:
             driver.get('https://www.google.by')
             page = driver.find_element(By.XPATH, ".//input[@title='Search' or @title='Поиск']")  # Шукаць
             page.send_keys(req_i.value_req)
             page.send_keys(Keys.RETURN)
             req_i.position_google, req_i.url_result_google = ran_pages_google(req_i, driver)
-        except:
+        except common.exceptions.NoSuchElementException:
             req_i.position_google, req_i.url_result_google = None, None
 
-    def search_yandex(driver, req_i):
+    def search_yandex(driver, req_i):  # Поиск в яндексе
         try:
             driver.get('https://yandex.by')
             page = driver.find_element(By.XPATH, ".//*[@id='text']")  # Поиск
             page.send_keys(req_i.value_req)
             page.send_keys(Keys.RETURN)
             req_i.position_yandex, req_i.url_result_yandex = ran_pages_yandex(req_i, driver)
-        except:
+        except common.exceptions.NoSuchElementException:
             req_i.position_yandex, req_i.url_result_yandex = None, None
 
     driver = create_new_proxy()
@@ -144,8 +133,7 @@ def get_positions(reqs):
     driver.quit()
 
 
-def start_parser():
-    err = []  # Список id запросов, во время выполнения которых произошли ошибки
+def start_parser():  # Запуск скрипта
     read_file_name = 'list_requests'  # read_file_name = input('filename: ')
     if 'json' in (read_file_name):
         reqs = Req.read_json(read_file_name)
@@ -157,8 +145,6 @@ def start_parser():
     Req.create_json(reqs)
     time_now = datetime.now(tz=None)
     print("time finish {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
-    if err:
-        print(err)
 
 
 if __name__ == "__main__":
