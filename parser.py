@@ -2,6 +2,7 @@ from selenium import webdriver
 from selenium import common
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.options import Options
 from req import Req
 from datetime import datetime
 from os import path, makedirs
@@ -10,6 +11,8 @@ import subprocess
 
 def create_new_proxy():  # Возвращает обьект webdriver с новым ip
     subprocess.getoutput('sudo service tor restart')
+    opts = Options()
+    opts.headless = True
     profile = webdriver.FirefoxProfile(profile_directory='/home/sergey/PycharmProjects/crm_parser/ProfileFireFox')
     # profile.set_preference("network.proxy.type", 1)
     # profile.set_preference("network.proxy.socks", '127.0.0.1')
@@ -17,7 +20,7 @@ def create_new_proxy():  # Возвращает обьект webdriver с нов
     # profile.set_preference("network.proxy.socks_remote_dns", False)
     # profile.set_preference("intl.accept_languages", "ru")
     # profile.update_preferences()
-    driver = webdriver.Firefox(firefox_profile=profile)
+    driver = webdriver.Firefox(firefox_profile=profile, options=opts)  # options=opts
     driver.implicitly_wait(10)
     return driver
 
@@ -44,16 +47,14 @@ def check_captcha_google(driver):  # Проверяет не подсовыва�
 
 def check_captcha_yandex(driver):  # Проверяет не подсовывает ли yandex капчу
     if 'Ой!' in driver.title:
-        return False
-    else:
         return True
+    else:
+        return False
 
 
 def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):
     if check_captcha_google(driver):  # Проверяем не подсовывает ли google капчу
         return None, None
-    if namber_page == 10:  # листает 10 страниц, если не находит, возврщает 101
-        return 101, None
     page = driver.find_element(By.XPATH, "//*[@id='search']")  # page = driver.find_element_by_id("search")
     results = page.find_elements(By.XPATH, ".//div[@class='g']")
     for i, result in enumerate(results):
@@ -66,6 +67,8 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):
         else:
             namber += 1
     namber_page += 1
+    if namber_page == 10:  # листает 10 страниц, если не находит, возврщает 101
+        return 101, None
     driver.find_element_by_xpath(".//a[@aria-label='Page {0}'][text()='{0}']".format(namber_page + 1)).click()
     return ran_pages_google(req_i, driver, namber, namber_page)
 
@@ -73,8 +76,6 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):
 def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):
     if check_captcha_yandex(driver):  # проверка на капчу
         return None, None
-    if namber_page == 10:  # листает 10 страниц, если не находит, возврщает 101
-        return 101, None
     results = driver.find_elements(By.XPATH, ".//ul/li[@class='serp-item']")  # получаем список результатов
     driver.implicitly_wait(0)
     for i, r in enumerate(results):
@@ -89,6 +90,8 @@ def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):
         else:
             continue
     namber_page += 1
+    if namber_page == 10:  # листает 10 страниц, если не находит, возврщает 101
+        return 101, None
     try:
         aria_label = driver.find_element_by_xpath(".//div[@aria-label='Страницы']")  # aria-label="Страницы"
         aria_label.find_element_by_xpath(".//a[text()='{0}']".format(namber_page + 1)).click()
@@ -138,6 +141,7 @@ def get_positions(reqs):
             driver = create_new_proxy()
             search_yandex(driver, req_i)
             lag_bad_proxy = True if req_i.position_yandex is None else False
+    driver.quit()
 
 
 def start_parser():
