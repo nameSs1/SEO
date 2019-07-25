@@ -5,7 +5,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from req import Req
 from datetime import datetime
-from os import path, makedirs
 import subprocess
 
 
@@ -114,7 +113,7 @@ def get_positions(reqs):  # Задаем поисковика полученый
             req_i.position_yandex, req_i.url_result_yandex = None, None
 
     driver = create_new_proxy()
-    for req_i in reqs:  # Запросы в google
+    for i, req_i in enumerate(start=1, iterable=reqs):  # Запросы в google
         search_google(driver, req_i)
         flag_bad_proxy = True if req_i.position_google is None else False
         while flag_bad_proxy:
@@ -122,7 +121,8 @@ def get_positions(reqs):  # Задаем поисковика полученый
             driver = create_new_proxy()
             search_google(driver, req_i)
             flag_bad_proxy = True if req_i.position_google is None else False
-    for req_i in reqs:  # Запросы в yandex
+        print("\r Выполнено запросов в google: {}".format(i), end="")
+    for i, req_i in enumerate(start=1, iterable=reqs):  # Запросы в yandex
         search_yandex(driver, req_i)
         lag_bad_proxy = True if req_i.position_yandex is None else False
         while lag_bad_proxy:
@@ -130,6 +130,7 @@ def get_positions(reqs):  # Задаем поисковика полученый
             driver = create_new_proxy()
             search_yandex(driver, req_i)
             lag_bad_proxy = True if req_i.position_yandex is None else False
+        print("\r Выполнено запросов в yandex: {}".format(i), end="")
     driver.quit()
 
 
