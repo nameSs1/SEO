@@ -10,13 +10,13 @@ import subprocess
 
 def create_new_proxy():  # Возвращает обьект webdriver с новым ip
     subprocess.getoutput('sudo service tor restart')
-    profile = webdriver.FirefoxProfile()
-    profile.set_preference("network.proxy.type", 1)
-    profile.set_preference("network.proxy.socks", '127.0.0.1')
-    profile.set_preference("network.proxy.socks_port", 9050)
-    profile.set_preference("network.proxy.socks_remote_dns", False)
-    profile.set_preference("intl.accept_languages", "ru")
-    profile.update_preferences()
+    profile = webdriver.FirefoxProfile(profile_directory='/home/sergey/PycharmProjects/crm_parser/ProfileFireFox')
+    # profile.set_preference("network.proxy.type", 1)
+    # profile.set_preference("network.proxy.socks", '127.0.0.1')
+    # profile.set_preference("network.proxy.socks_port", 9050)
+    # profile.set_preference("network.proxy.socks_remote_dns", False)
+    # profile.set_preference("intl.accept_languages", "ru")
+    # profile.update_preferences()
     driver = webdriver.Firefox(firefox_profile=profile)
     driver.implicitly_wait(10)
     return driver
@@ -37,6 +37,13 @@ def check_captcha_google(driver):  # Проверяет не подсовыва�
     try:
         driver.find_element_by_id("captcha-form")
     except common.exceptions.NoSuchElementException:
+        return False
+    else:
+        return True
+
+
+def check_captcha_yandex(driver):  # Проверяет не подсовывает ли yandex капчу
+    if 'Ой!' in driver.title:
         return False
     else:
         return True
@@ -64,6 +71,8 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):
 
 
 def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):
+    if check_captcha_yandex(driver):  # проверка на капчу
+        return None, None
     if namber_page == 10:  # листает 10 страниц, если не находит, возврщает 101
         return 101, None
     results = driver.find_elements(By.XPATH, ".//ul/li[@class='serp-item']")  # получаем список результатов
