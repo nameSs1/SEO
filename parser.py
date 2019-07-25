@@ -15,6 +15,7 @@ def create_new_proxy():  # Возвращает обьект webdriver с нов
     profile.set_preference("network.proxy.socks", '127.0.0.1')
     profile.set_preference("network.proxy.socks_port", 9050)
     profile.set_preference("network.proxy.socks_remote_dns", False)
+    profile.set_preference("intl.accept_languages", "ru")
     profile.update_preferences()
     driver = webdriver.Firefox(firefox_profile=profile)
     driver.implicitly_wait(10)
@@ -63,8 +64,7 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):
 
 
 def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):
-    """ принимает driver. возвращает позицию в поисковике. листает 10 страниц, если не находит, возврщает 101"""
-    if namber_page == 10:
+    if namber_page == 10:  # листает 10 страниц, если не находит, возврщает 101
         return 101, None
     results = driver.find_elements(By.XPATH, ".//ul/li[@class='serp-item']")  # получаем список результатов
     driver.implicitly_wait(0)
@@ -90,30 +90,45 @@ def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):
     return ran_pages_yandex(req_i, driver, namber, namber_page)
 
 
-def get_position(req_i):
-    while True:
-        driver = create_new_proxy()
-        if req_i.position_google is None:  # Поиск в google
-            try:
-                driver.get('https://www.google.by')
-                page = driver.find_element(By.XPATH, ".//input[@title='Search']")  # Поиск, Шукаць
-                page.send_keys(req_i.value_req)
-                page.send_keys(Keys.RETURN)
-                req_i.position_google, req_i.url_result_google = ran_pages_google(req_i, driver)
-            except:
-                req_i.position_google, req_i.url_result_google = None, None
-        if req_i.position_yandex is None:  # Поиск в yandex
-            try:
-                driver.get('https://yandex.by')
-                page = driver.find_element(By.XPATH, ".//*[@id='text']")  # Поиск
-                page.send_keys(req_i.value_req)
-                page.send_keys(Keys.RETURN)
-                req_i.position_yandex, req_i.url_result_yandex = ran_pages_yandex(req_i, driver)
-            except:
-                req_i.position_yandex, req_i.url_result_yandex = None, None
-        driver.quit()
-        if req_i.position_yandex is not None and req_i.position_google is not None:
-            break
+def get_positions(reqs):
+
+    def search_google(driver, req_i):
+        try:
+            driver.get('https://www.google.by')
+            page = driver.find_element(By.XPATH, ".//input[@title='Search' or @title='Поиск']")  # Шукаць
+            page.send_keys(req_i.value_req)
+            page.send_keys(Keys.RETURN)
+            req_i.position_google, req_i.url_result_google = ran_pages_google(req_i, driver)
+        except:
+            req_i.position_google, req_i.url_result_google = None, None
+
+    def search_yandex(driver, req_i):
+        try:
+            driver.get('https://yandex.by')
+            page = driver.find_element(By.XPATH, ".//*[@id='text']")  # Поиск
+            page.send_keys(req_i.value_req)
+            page.send_keys(Keys.RETURN)
+            req_i.position_yandex, req_i.url_result_yandex = ran_pages_yandex(req_i, driver)
+        except:
+            req_i.position_yandex, req_i.url_result_yandex = None, None
+
+    driver = create_new_proxy()
+    for req_i in reqs:  # Запросы в google
+        search_google(driver, req_i)
+        flag_bad_proxy = True if req_i.position_google is None else False
+        while flag_bad_proxy:
+            driver.quit()
+            driver = create_new_proxy()
+            search_google(driver, req_i)
+            flag_bad_proxy = True if req_i.position_google is None else False
+    for req_i in reqs:  # Запросы в yandex
+        search_yandex(driver, req_i)
+        lag_bad_proxy = True if req_i.position_yandex is None else False
+        while lag_bad_proxy:
+            driver.quit()
+            driver = create_new_proxy()
+            search_yandex(driver, req_i)
+            lag_bad_proxy = True if req_i.position_yandex is None else False
 
 
 def start_parser():
@@ -125,8 +140,7 @@ def start_parser():
         reqs = Req.read_txt(read_file_name)
     time_now = datetime.now(tz=None)
     print("time start {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
-    for d in reqs:
-        get_position(d)
+    get_positions(reqs)  # делаем запросы в google и яндекс, отправляем список обьектов Req
     Req.create_json(reqs)
     time_now = datetime.now(tz=None)
     print("time finish {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
